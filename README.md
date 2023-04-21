@@ -133,16 +133,92 @@ Databricks uses a Hive metastore by default to register databases, tables, and v
 DESCRIBE EXTENDED students
 ```
 
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/DESCRIBE_EXTENDED.JPG)
+
 DESCRIBE DETAIL is another command that allows us to explore table metadata.
 
 ```sh
 DESCRIBE DETAIL students
 ```
 
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/DESCRIBE_DETAIL.JPG)
 
+### Explore Delta Lake Files
+
+It is possible to see the files backing the Delta Lake table by using a Databricks Utilities function:
+
+```sh
+%python
+display(dbutils.fs.ls(f"{DA.paths.user_db}/students"))
+```
+
+Note that the directory contains a number of Parquet data files and a directory named _delta_log.
+
+```sh
+%python
+display(dbutils.fs.ls(f"{DA.paths.user_db}/students/_delta_log"))
+```
+
+
+```sh
+%python
+display(spark.sql(f"SELECT * FROM json.`{DA.paths.user_db}/students/_delta_log/00000000000000000007.json`"))
+```
+
+### Compacting Small Files and Indexing
+
+Small files can occur for a variety of reasons; in our case, we performed a number of operations where only one or several records were inserted. Files will be combined toward an optimal size (scaled based on the size of the table) by using the OPTIMIZE command.
+
+OPTIMIZE will replace existing data files by combining records and rewriting the results.
+
+When executing OPTIMIZE, users can optionally specify one or several fields for ZORDER indexing. While the specific math of Z-order is unimportant, it speeds up data retrieval when filtering on provided fields by colocating data with similar values within data files.
+
+```sh
+OPTIMIZE students
+ZORDER BY id
+```
+
+### Reviewing Delta Lake Transactions
+
+Returns provenance information, including the operation, user, and so on, for each write to a table. Table history is retained for 30 days.
+
+```sh
+DESCRIBE HISTORY students
+```
+
+Time travel queries can be performed by specifying either the integer version or a timestamp
+
+```sh
+SELECT * 
+FROM students VERSION AS OF 3
+```
+
+### Rollback Versions
+
+```sh
+DELETE FROM students
+```
+```sh
+RESTORE TABLE students TO VERSION AS OF 8 
+```
+
+### Cleaning Up Stale Files
+
+By default, VACUUM will prevent deleting files less than 7 days old, just to ensure that no long-running operations are still referencing any of the files to be deleted. Run VACUUM on a Delta table, you lose the ability time travel back to a version older than the specified data retention period. 
+
+```sh
+VACUUM students
+```
+
+Use the DRY RUN version of vacuum to print out all records to be deleted
+
+```sh
+VACUUM students RETAIN 0 HOURS DRY RUN
+```
 
 Sources: 
 - https://sparkbyexamples.com/spark/types-of-clusters-in-databricks/
 - https://hevodata.com/learn/databricks-clusters/
 - https://docs.databricks.com/clusters/index.html 
 - https://learn.microsoft.com/en-us/azure/databricks/delta/
+- https://docs.databricks.com/sql/language-manual/delta-describe-history.html
