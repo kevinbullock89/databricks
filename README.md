@@ -152,13 +152,14 @@ It is possible to see the files backing the Delta Lake table by using a Databric
 display(dbutils.fs.ls(f"{DA.paths.user_db}/students"))
 ```
 
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/EXPLORE.JPG)
+
 Note that the directory contains a number of Parquet data files and a directory named _delta_log.
 
 ```sh
 %python
 display(dbutils.fs.ls(f"{DA.paths.user_db}/students/_delta_log"))
 ```
-
 
 ```sh
 %python
@@ -178,6 +179,8 @@ OPTIMIZE students
 ZORDER BY id
 ```
 
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/OPTIMIZE.JPG)
+
 ### Reviewing Delta Lake Transactions
 
 Returns provenance information, including the operation, user, and so on, for each write to a table. Table history is retained for 30 days.
@@ -185,6 +188,7 @@ Returns provenance information, including the operation, user, and so on, for ea
 ```sh
 DESCRIBE HISTORY students
 ```
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/DESCRIBE_HISTORY.JPG)
 
 Time travel queries can be performed by specifying either the integer version or a timestamp
 
