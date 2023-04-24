@@ -567,6 +567,71 @@ CREATE OR REPLACE TABLE purchases_shallow_clone
 SHALLOW CLONE purchases
 ```
 
+## Complete Overwrites
+
+We can use overwrites to atomically replace all of the data in a table. There are multiple benefits to overwriting tables instead of deleting and recreating tables:
+
+  - Overwriting a table is much faster because it doesn’t need to list the directory recursively or delete any files.
+  - The old version of the table still exists; can easily retrieve the old data using Time Travel.
+  - It’s an atomic operation. Concurrent queries can still read the table while you are deleting the table.
+  - Due to ACID transaction guarantees, if overwriting the table fails, the table will be in its previous state.
+
+```sh
+CREATE OR REPLACE TABLE events AS
+SELECT * FROM parquet.`${da.paths.datasets}/raw/events-historical`
+```
+
+INSERT OVERWRITE provides a nearly identical outcome as above: data in the target table will be replaced by data from the query. INSERT OVERWRITE:
+
+  - Can only overwrite an existing table, not create a new one like our CRAS statement
+  - Can overwrite only with new records that match the current table schema -- and thus can be a "safer" technique for overwriting an existing table without disrupting     downstream consumers
+  - Can overwrite individual partition
+
+```sh
+INSERT OVERWRITE sales
+SELECT * FROM parquet.`${da.paths.datasets}/raw/sales-historical/`
+```
+
+### Append Rows
+
+We can use INSERT INTO to atomically append new rows to an existing Delta table. This allows for incremental updates to existing tables, which is much more efficient than overwriting each time.
+
+Append new sale records to the sales table using INSERT INTO.
+
+```sh
+INSERT INTO sales
+SELECT * FROM parquet.`${da.paths.datasets}/raw/sales-30m`
+```
+
+### Merge Updates
+
+The main benefits of MERGE:
+
+ - updates, inserts, and deletes are completed as a single transaction
+ - multiple conditionals can be added in addition to matching fields
+ - provides extensive options for implementing custom logic
+
+```sh
+MERGE INTO users a
+USING users_update b
+ON a.user_id = b.user_id
+WHEN MATCHED AND a.email IS NULL AND b.email IS NOT NULL THEN
+  UPDATE SET email = b.email, updated = b.updated
+WHEN NOT MATCHED THEN INSERT *
+```
+
+### Load Incrementally
+
+COPY INTO provides SQL engineers an idempotent option to incrementally ingest data from external systems.
+
+```sh
+COPY INTO sales
+FROM "${da.paths.datasets}/raw/sales-30m"
+FILEFORMAT = PARQUET
+```
+
+
+
 Sources: 
 - https://sparkbyexamples.com/spark/types-of-clusters-in-databricks/
 - https://hevodata.com/learn/databricks-clusters/
