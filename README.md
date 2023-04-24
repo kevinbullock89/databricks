@@ -630,7 +630,191 @@ FROM "${da.paths.datasets}/raw/sales-30m"
 FILEFORMAT = PARQUET
 ```
 
+## Cleaning Data
 
+- count(col) skips NULL values when counting specific columns or expressions.
+- count(*) is a special case that counts the total number of rows (including rows that are only NULL values).
+- To count null values, use the count_if function or WHERE clause to provide a condition that filters for records where the value IS NULL
+- Distinct Records count(DISNTINCT(*))
+- Distinct Records count(DISNTINCT(col))
+
+## Advanced SQL Transformations
+
+### Interacting with JSON Data
+
+The events_raw table was registered against data representing a Kafka payload.
+
+```sh
+CREATE OR REPLACE TEMP VIEW events_strings AS
+  SELECT string(key), string(value) 
+  FROM events_raw;
+  
+SELECT * FROM events_strings
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/KAFKA_JSON.JPG)
+
+Spark SQL has built-in functionality to directly interact with JSON data stored as strings. We can use the : syntax to traverse nested data structures.
+
+```sh
+SELECT value:device, value:geo:city 
+FROM events_strings
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/KAFKA_VALUES.JPG)
+
+Spark SQL also has the ability to parse JSON objects into struct types (a native Spark type with nested attributes).
+
+```sh
+SELECT value 
+FROM events_strings 
+WHERE value:event_name = "finalize" 
+ORDER BY key
+LIMIT 1
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/KAFKA_EVENT.JPG)
+
+Spark SQL also has a schema_of_json function to derive the JSON schema from an example
+
+```sh
+CREATE OR REPLACE TEMP VIEW parsed_events AS
+  SELECT from_json(value, schema_of_json('{"device":"Linux","ecommerce":{"purchase_revenue_in_usd":1075.5,"total_item_quantity":1,"unique_items":1},"event_name":"finalize","event_previous_timestamp":1593879231210816,"event_timestamp":1593879335779563,"geo":{"city":"Houston","state":"TX"},"items":[{"coupon":"NEWBED10","item_id":"M_STAN_K","item_name":"Standard King Mattress","item_revenue_in_usd":1075.5,"price_in_usd":1195.0,"quantity":1}],"traffic_source":"email","user_first_touch_timestamp":1593454417513109,"user_id":"UA000000106116176"}')) AS json 
+  FROM events_strings;
+  
+SELECT * FROM parsed_events
+```
+
+Once a JSON string is unpacked to a struct type, Spark supports * (star) unpacking to flatten fields into columns.
+
+```sh
+CREATE OR REPLACE TEMP VIEW new_events_final AS
+  SELECT json.* 
+  FROM parsed_events;
+  
+SELECT * FROM new_events_final
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/JSON_FINALE.JPG)
+
+### Explore Arrays
+
+The items field in the events table is an array of structs. Spark SQL has a number of functions specifically to deal with arrays. The explode function lets us put each element in an array on its own row.
+
+```sh
+CREATE OR REPLACE TEMP VIEW new_events_final AS
+  SELECT json.* 
+  FROM parsed_events;
+  
+SELECT * FROM new_events_final
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/EXPLORE_ARRAY.JPG)
+
+### Collect Arrays
+
+  - The collect_set function can collect unique values for a field, including fields within arrays.
+
+  - The flatten function allows multiple arrays to be combined into a single array.
+
+  - The array_distinct function removes duplicate elements from an array.
+
+```sh
+SELECT user_id,
+  collect_set(event_name) AS event_history,
+  array_distinct(flatten(collect_set(items.item_id))) AS cart_history
+FROM events
+GROUP BY user_id
+```
+
+### Join Tables
+
+Spark SQL supports standard join operations (inner, outer, left, right, anti, cross, semi).
+
+### Set Operators
+
+  - Spark SQL supports UNION, MINUS, and INTERSECT set operators. 
+  - UNION returns the collection of two queries.
+  - INTERSECT returns all rows found in both relations.
+
+### Pivot Tables
+
+The PIVOT clause is used for data perspective. We can get the aggregated values based on specific column values, which will be turned to multiple columns used in SELECT clause. The PIVOT clause can be specified after the table name or subquery.
+
+SELECT * FROM (): The SELECT statement inside the parentheses is the input for this table.
+
+PIVOT: The first argument in the clause is an aggregate function and the column to be aggregated. Then, we specify the pivot column in the FOR subclause. The IN operator contains the pivot column values.
+
+```sh
+CREATE OR REPLACE TABLE transactions AS
+
+SELECT * FROM (
+  SELECT
+    email,
+    order_id,
+    transaction_timestamp,
+    total_item_quantity,
+    purchase_revenue_in_usd,
+    unique_items,
+    item.item_id AS item_id,
+    item.quantity AS quantity
+  FROM sales_enriched
+) PIVOT (
+  sum(quantity) FOR item_id in (
+    'P_FOAM_K',
+    'M_STAN_Q',
+    'P_FOAM_S',
+    'M_PREM_Q',
+    'M_STAN_F',
+    'M_STAN_T',
+    'M_PREM_K',
+    'M_PREM_F',
+    'M_STAN_K',
+    'M_PREM_T',
+    'P_DOWN_S',
+    'P_DOWN_K'
+  )
+);
+
+SELECT * FROM transactions
+```
+
+### Higher Order Functions
+
+Higher order functions in Spark SQL allow you to work directly with complex data types. When working with hierarchical data, records are frequently stored as array or map type objects. Higher-order functions allow you to transform data while preserving the original structure.
+
+Higher order functions include:
+
+  - FILTER filters an array using the given lambda function.
+  - EXIST tests whether a statement is true for one or more elements in an array.
+  - TRANSFORM uses the given lambda function to transform all elements in an array.
+  - REDUCE takes two lambda functions to reduce the elements of an array to a single value by merging the elements into a buffer, and the apply a finishing function on the final buffer.
+
+Filter:
+
+```sh
+-- filter for sales of only king sized items
+SELECT
+  order_id,
+  items,
+  FILTER (items, i -> i.item_id LIKE "%K") AS king_items
+FROM sales
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/FILTER.JPG)
+
+Transform:
+
+```sh
+-- filter for sales of only king sized items
+SELECT
+  order_id,
+  items,
+  FILTER (items, i -> i.item_id LIKE "%K") AS king_items
+FROM sales
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/TRANSFORM.JPG)
 
 Sources: 
 - https://sparkbyexamples.com/spark/types-of-clusters-in-databricks/
