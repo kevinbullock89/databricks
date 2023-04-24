@@ -220,9 +220,166 @@ Use the DRY RUN version of vacuum to print out all records to be deleted
 VACUUM students RETAIN 0 HOURS DRY RUN
 ```
 
+## Databases and Tables on Databricks
+
+### Using Hive Variables
+
+```sh
+SELECT "${da.db_name}" AS db_name,
+       "${da.paths.working_dir}" AS working_dir;    
+```
+
+### Databases
+
+```sh
+CREATE DATABASE IF NOT EXISTS ${da.db_name}_default_location;
+CREATE DATABASE IF NOT EXISTS ${da.db_name}_custom_location LOCATION '${da.paths.working_dir}/_custom_location.db';   
+```
+
+```sh
+DESCRIBE DATABASE EXTENDED ${da.db_name}_default_location;   
+```
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/DESCRIBE_DATABASE_EXTENDED.JPG)
+
+```sh
+DESCRIBE DATABASE EXTENDED ${da.db_name}_default_location;   
+```
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/DESCRIBE_DATABASE_EXTENDED_CUSTOM.JPG)
+
+Default location:
+
+```sh
+USE ${da.db_name}_default_location;
+
+CREATE OR REPLACE TABLE managed_table_in_db_with_default_location (width INT, length INT, height INT);
+INSERT INTO managed_table_in_db_with_default_location 
+VALUES (3, 2, 1);
+SELECT * FROM managed_table_in_db_with_default_location;
+```
+
+
+```sh
+USE ${da.db_name}_custom_location;
+
+CREATE OR REPLACE TABLE managed_table_in_db_with_custom_location (width INT, length INT, height INT);
+INSERT INTO managed_table_in_db_with_custom_location VALUES (3, 2, 1);
+SELECT * FROM managed_table_in_db_with_custom_location;
+```
+
+```sh
+USE ${da.db_name}_default_location;
+
+CREATE OR REPLACE TEMPORARY VIEW temp_delays USING CSV OPTIONS (
+  path = '${da.paths.working_dir}/flights/departuredelays.csv',
+  header = "true",
+  mode = "FAILFAST" -- abort file parsing with a RuntimeException if any malformed lines are encountered
+);
+CREATE OR REPLACE TABLE external_table LOCATION '${da.paths.working_dir}/external_table' AS
+  SELECT * FROM temp_delays;
+```
+
+### Tables
+
+```sh
+USE ${da.db_name}_default_location;
+
+CREATE OR REPLACE TEMPORARY VIEW temp_delays USING CSV OPTIONS (
+  path = '${da.paths.working_dir}/flights/departuredelays.csv',
+  header = "true",
+  mode = "FAILFAST" -- abort file parsing with a RuntimeException if any malformed lines are encountered
+);
+CREATE OR REPLACE TABLE external_table LOCATION '${da.paths.working_dir}/external_table' AS
+  SELECT * FROM temp_delays;
+```
+
+## Views and CTEs
+
+### Views
+
+A Temp View is available across the context of a Notebook.
+
+```sh
+-- mode "FAILFAST" will abort file parsing with a RuntimeException if any malformed lines are encountered
+CREATE TABLE external_table
+USING CSV OPTIONS (
+  path = '${da.paths.working_dir}/flight_delays',
+  header = "true",
+  mode = "FAILFAST"
+);
+
+SELECT * FROM external_table;
+```
+
+```sh
+SHOW TABLES;
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/SHOW_TABLES.JPG)
+
+```sh
+CREATE VIEW view_delays_abq_lax AS
+  SELECT * 
+  FROM external_table 
+  WHERE origin = 'ABQ' AND destination = 'LAX';
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/SHOW_TABLES_II.JPG)
+
+### External View
+
+```sh
+CREATE TEMPORARY VIEW temp_view_delays_gt_120
+AS SELECT * FROM external_table WHERE delay > 120 ORDER BY delay ASC;
+```
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/SHOW_TABLES_III.JPG)
+
+### Global Temp Views
+
+A Global Temp View is available to all Notebooks running on that Databricks Cluster.
+
+```sh
+CREATE GLOBAL TEMPORARY VIEW global_temp_view_dist_gt_1000 
+AS SELECT * FROM external_table WHERE distance > 1000;
+```
+
+```sh
+SHOW TABLES IN global_temp;
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/SHOW_TABLES_IN.JPG)
+
+## Common Table Expressions
+
+CTEs can be used in a variety of contexts. Below, are a few examples of the different ways a CTE can be used in a query. First, an example of making multiple column aliases using a CTE.
+
+```sh
+WITH flight_delays(
+  total_delay_time,
+  origin_airport,
+  destination_airport
+) AS (
+  SELECT
+    delay,
+    origin,
+    destination
+  FROM
+    external_table
+)
+SELECT
+  *
+FROM
+  flight_delays
+WHERE
+  total_delay_time > 120
+  AND origin_airport = "ATL"
+  AND destination_airport = "DEN";
+```
+
+
 Sources: 
 - https://sparkbyexamples.com/spark/types-of-clusters-in-databricks/
 - https://hevodata.com/learn/databricks-clusters/
 - https://docs.databricks.com/clusters/index.html 
 - https://learn.microsoft.com/en-us/azure/databricks/delta/
 - https://docs.databricks.com/sql/language-manual/delta-describe-history.html
+- https://community.databricks.com/s/question/0D53f00001GHVPFCA5/whats-the-difference-between-a-global-view-and-a-temp-view
