@@ -375,6 +375,197 @@ WHERE
   AND destination_airport = "DEN";
 ```
 
+## Querying Files Directly 
+
+### Quere a single File:
+
+```sh
+SELECT * FROM file_format.`/path/to/file`;
+SELECT * FROM json.`${da.paths.datasets}/raw/events-kafka/001.json`
+
+```
+
+### Query a Directory of Files:
+
+```sh
+SELECT * FROM json.`${da.paths.datasets}/raw/events-kafka`
+```
+
+### Create References to Files
+
+This ability to directly query files and directories means that additional Spark logic can be chained to queries against files.
+
+```sh
+CREATE OR REPLACE TEMP VIEW events_temp_view
+AS SELECT * FROM json.`${da.paths.datasets}/raw/events-kafka/`;
+
+SELECT * FROM events_temp_view
+```
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/JSON.JPG)
+
+### Extract Text Files as Raw Strings
+
+When working with text-based files (which include JSON, CSV, TSV, and TXT formats), you can use the text format to load each line of the file as a row with one string column named value.
+
+```sh
+SELECT * FROM text.`${da.paths.datasets}/raw/events-kafka/`
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/TEXT.JPG)
+
+### Extract the Raw Bytes and Metadata of a File
+
+Some workflows may require working with entire files, such as when dealing with images or unstructured data. Using binaryFile to query a directory will provide file metadata alongside the binary representation of the file contents.
+
+```sh
+SELECT * FROM binaryFile.`${da.paths.datasets}/raw/events-kafka/`
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/BINARY.JPG)
+
+## Providing Options for External Sources
+
+While directly querying files works well for self-describing formats, many data sources require additional configurations or schema declaration to properly ingest records.
+
+### Registering Tables on External Data with Read Options
+
+While Spark will extract some self-describing data sources efficiently using default settings, many formats will require declaration of schema or other options. While there are many additional configurations you can set while creating tables against external sources, the syntax below demonstrates the essentials required to extract data from most formats.
+
+```sh
+CREATE TABLE sales_csv
+  (order_id LONG, email STRING, transactions_timestamp LONG, total_item_quantity INTEGER, purchase_revenue_in_usd DOUBLE, unique_items INTEGER, items STRING)
+USING CSV
+OPTIONS (
+  header = "true",
+  delimiter = "|"
+)
+LOCATION "${da.paths.working_dir}/sales-csv"
+```
+
+### Extracting Data from SQL Databased
+
+SQL databases are an extremely common data source, and Databricks has a standard JDBC driver for connecting with many flavors of SQL.
+
+```sh
+DROP TABLE IF EXISTS users_jdbc;
+
+CREATE TABLE users_jdbc
+USING JDBC
+OPTIONS (
+  url = "jdbc:sqlite:/${da.username}_ecommerce.db",
+  dbtable = "users"
+)
+```
+
+## Creating Delta Tables
+
+After extracting data from external data sources, load data into the Lakehouse to ensure that all of the benefits of the Databricks platform can be fully leveraged. While different organizations may have varying policies for how data is initially loaded into Databricks, we typically recommend that early tables represent a mostly raw version of the data, and that validation and enrichment occur in later stages. This pattern ensures that even if data doesn't match expectations with regards to data types or column names, no data will be dropped, meaning that programmatic or manual intervention can still salvage data in a partially corrupted or invalid state.
+
+### Create Table as Select (CTAS)
+
+CREATE TABLE AS SELECT statements create and populate Delta tables using data retrieved from an input query.
+
+```sh
+CREATE OR REPLACE TABLE sales AS
+SELECT * FROM parquet.`${da.paths.datasets}/raw/sales-historical/`;
+
+DESCRIBE EXTENDED sales;
+```
+
+CTAS statements automatically infer schema information from query results and do not support manual schema declaration. This means that CTAS statements are useful for external data ingestion from sources with well-defined schema, such as Parquet files and tables. CTAS statements also do not support specifying additional file options.
+
+```sh
+CREATE OR REPLACE TEMP VIEW sales_tmp_vw
+  (order_id LONG, email STRING, transactions_timestamp LONG, total_item_quantity INTEGER, purchase_revenue_in_usd DOUBLE, unique_items INTEGER, items STRING)
+USING CSV
+OPTIONS (
+  path = "${da.paths.datasets}/raw/sales-csv",
+  header = "true",
+  delimiter = "|"
+);
+
+CREATE TABLE sales_delta AS
+  SELECT * FROM sales_tmp_vw;
+  
+SELECT * FROM sales_delta
+```
+
+### Filtering and Renaming Columns from Existing Tables
+
+Simple transformations like changing column names or omitting columns from target tables can be easily accomplished during table creation.
+
+```sh
+CREATE OR REPLACE TABLE purchases AS
+SELECT order_id AS id, transaction_timestamp, purchase_revenue_in_usd AS price
+FROM sales;
+
+SELECT * FROM purchases
+```
+
+### Declare Schema with Generated Columns
+
+Generated columns are a special type of column whose values are automatically generated based on a user-specified function over other columns in the Delta table.
+
+```sh
+CREATE OR REPLACE TABLE purchase_dates (
+  id STRING, 
+  transaction_timestamp STRING, 
+  price STRING,
+  date DATE GENERATED ALWAYS AS (
+    cast(cast(transaction_timestamp/1e6 AS TIMESTAMP) AS DATE))
+    COMMENT "generated based on `transactions_timestamp` column")
+```
+
+Because date is a generated column, if we write to purchase_dates without providing values for the date column, Delta Lake automatically computes them.
+
+### Add a Table Constraint
+
+Because Delta Lake enforces schema on write, Databricks can support standard SQL constraint management clauses to ensure the quality and integrity of data added to a table.
+
+Databricks currently support two types of constraints:
+
+  - NOT NULL constraints
+  - CHECK constraints
+
+```sh
+ALTER TABLE purchase_dates ADD CONSTRAINT valid_date CHECK (date > '2020-01-01');
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/CONSTRAINT.JPG)
+
+### Enrich Tables with Additional Options and Metadata
+
+```sh
+CREATE OR REPLACE TABLE users_pii
+COMMENT "Contains PII"
+LOCATION "${da.paths.working_dir}/tmp/users_pii"
+PARTITIONED BY (first_touch_date)
+AS
+  SELECT *, 
+    cast(cast(user_first_touch_timestamp/1e6 AS TIMESTAMP) AS DATE) first_touch_date, 
+    current_timestamp() updated,
+    input_file_name() source_file
+  FROM parquet.`${da.paths.datasets}/raw/users-historical/`;
+  
+SELECT * FROM users_pii;
+```
+
+### Cloning Delta Lake Tables
+
+DEEP CLONE fully copies data and metadata from a source table to a target. This copy occurs incrementally, so executing this command again can sync changes from the source to the target location.
+
+
+```sh
+CREATE OR REPLACE TABLE purchases_clone
+DEEP CLONE purchases
+```
+
+Because all the data files must be copied over, this can take quite a while for large datasets. Shallow clones just copy the Delta transaction logs, meaning that the data doesn't move.
+
+```sh
+CREATE OR REPLACE TABLE purchases_shallow_clone
+SHALLOW CLONE purchases
+```
 
 Sources: 
 - https://sparkbyexamples.com/spark/types-of-clusters-in-databricks/
