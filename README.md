@@ -816,10 +816,220 @@ FROM sales
 
 ![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/TRANSFORM.JPG)
 
-Sources: 
+## SQL UDFs and Control FLow
+
+Databricks added support for User Defined Functions (UDFs) registered natively in SQL starting in DBR 9.1. 
+
+This feature allows users to register custom combinations of SQL logic as functions in a database, making these methods reusable anywhere SQL can be run on Databricks. These functions leverage Spark SQL directly, maintaining all of the optimizations of Spark when applying your custom logic to large datasets.
+
+### SQL UDFs
+
+At minimum, a SQL UDF requires a function name, optional parameters, the type to be returned, and some custom logic.
+
+Below, a simple function named yelling takes one parameter named text. It returns a string that will be in all uppercase letters with three exclamation points added to the end.
+
+```sh
+SELECT yelling(food) FROM foods
+```
+
+```sh
+CREATE OR REPLACE FUNCTION yelling(text STRING)
+RETURNS STRING
+RETURN concat(upper(text), "!!!")
+```
+
+### Scoping and Permissions of SQL UDFs
+
+Note that SQL UDFs will persist between execution environments (which can include notebooks, DBSQL queries, and jobs).
+
+```sh
+DESCRIBE FUNCTION yelling
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/DESCRIBE_FUNCTION.JPG)
+
+```sh
+DESCRIBE FUNCTION EXTENDED yelling
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/DESCRIBE_FUNCTION_EXTENDED.JPG)
+
+## Incremental Data Ingestion with Auto Loader
+
+Incremental ETL is important since it allows us to deal solely with new data that has been encountered since the last ingestion. Reliably processing only the new data reduces redundant processing and helps enterprises reliably scale data pipelines.
+
+### Using Auto Loader
+
+Auto Loader incrementally and efficiently processes new data files as they arrive in cloud storage without any additional setup. Auto Loader incrementally and efficiently processes new data files as they arrive in cloud storage. Auto Loader can ingest JSON, CSV, PARQUET, AVRO, ORC, TEXT, and BINARYFILE file formats. Auto Loader provides a Structured Streaming source called cloudFiles.
+
+### Configure schema inference and evolution in Auto Loader
+
+```sh
+def autoload_to_table(data_source, source_format, table_name, checkpoint_directory):
+    query = (spark.readStream
+                  .format("cloudFiles")
+                  .option("cloudFiles.format", source_format)
+                  .option("cloudFiles.schemaLocation", checkpoint_directory)
+                  .load(data_source)
+                  .writeStream
+                  .option("checkpointLocation", checkpoint_directory)
+                  .option("mergeSchema", "true")
+                  .table(table_name))
+    return query
+```
+
+- data_source: The directory of the source data
+- source_format: The format of the source data
+- table_name: the name of the target table
+- checkpoint_directory: The location for storing metadata about the stream
+
+```sh
+query = autoload_to_table(data_source = f"{DA.paths.working_dir}/tracker",
+                          source_format = "json",
+                          table_name = "target_table",
+                          checkpoint_directory = f"{DA.paths.checkpoints}/target_table")
+```
+
+## Helper Function for Streaming Lessons
+
+```sh
+def block_until_stream_is_ready(query, min_batches=2):
+    import time
+    while len(query.recentProgress) < min_batches:
+        time.sleep(5) # Give it a couple of seconds
+
+    print(f"The stream has processed {len(query.recentProgress)} batchs")
+
+block_until_stream_is_ready(query)
+```
+
+## Incremental Multi-Hop in the Lakehouse 
+
+Delta Lake allows users to easily combine streaming and batch workloads in a unified multi-hop pipeline. Each stage of the pipeline represents a state of our data valuable to driving core use cases within the business. Because all data and metadata lives in object storage in the cloud, multiple users and applications can access data in near-real time, allowing analysts to access the freshest data as it's being processed.
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/MULT_HOP.png)
+
+  - Bronze tables contain raw data ingested from various sources (JSON files, RDBMS data, IoT data, to name a few examples).
+
+  - Silver tables provide a more refined view of our data. We can join fields from various bronze tables to enrich streaming records, or update account statuses based     on recent activity.
+
+  - Gold tables provide business level aggregates often used for reporting and dashboarding. This would include aggregations such as daily active website users, weekly     sales per store, or gross revenue per quarter by department.
+
+Bronze:
+
+```sh
+%sql
+CREATE OR REPLACE TEMPORARY VIEW recordings_bronze_temp AS (
+  SELECT *, current_timestamp() receipt_time, input_file_name() source_file
+  FROM recordings_raw_temp
+)
+```
+
+Silver:
+
+```sh
+%sql
+CREATE OR REPLACE TEMPORARY VIEW recordings_w_pii AS (
+  SELECT device_id, a.mrn, b.name, cast(from_unixtime(time, 'yyyy-MM-dd HH:mm:ss') AS timestamp) time, heartrate
+  FROM bronze_tmp a
+  INNER JOIN pii b
+  ON a.mrn = b.mrn
+  WHERE heartrate > 0)
+```
+
+Gold:
+
+```sh
+%sql
+CREATE OR REPLACE TEMP VIEW patient_avg AS (
+  SELECT mrn, name, mean(heartrate) avg_heartrate, date_trunc("DD", time) date
+  FROM recordings_enriched_temp
+  GROUP BY mrn, name, date_trunc("DD", time))
+```
+
+## Delta Live Tables
+
+Delta Live Tables is a declarative framework for building reliable, maintainable, and testable data processing pipelines. You define the transformations to perform on your data and Delta Live Tables manages task orchestration, cluster management, monitoring, data quality, and error handling.
+
+Instead of defining your data pipelines using a series of separate Apache Spark tasks, you define streaming tables and materialized views that the system should create and keep up to date. Delta Live Tables manages how your data is transformed based on queries you define for each processing step.
+
+### SQL for Delta Live Tables
+
+Bronze:
+
+```sh
+CREATE OR REFRESH STREAMING LIVE TABLE sales_orders_raw
+COMMENT "The raw sales orders, ingested from /databricks-datasets."
+AS SELECT * FROM cloud_files("/databricks-datasets/retail-org/sales_orders/", "json", map("cloudFiles.inferColumnTypes", "true"))
+```
+
+```sh
+CREATE OR REFRESH STREAMING LIVE TABLE customers
+COMMENT "The customers buying finished products, ingested from /databricks-datasets."
+AS SELECT * FROM cloud_files("/databricks-datasets/retail-org/customers/", "csv");
+```
+
+Silver:
+
+Quality Control
+
+The CONSTRAINT keyword introduces quality control. Similar in function to a traditional WHERE clause, CONSTRAINT integrates with DLT, enabling it to collect metrics on constraint violations. Constraints provide an optional ON VIOLATION clause, specifying an action to take on records that violate the constraint. The three modes currently supported by DLT include:
+
+- Fail Update: 	Pipeline failure when constraint is violated
+- Drop Row:     Discard records that contraints
+- Omitted:      Records violating constraints will be included (but violations will be reported in metrics)
+
+```sh
+CREATE OR REFRESH STREAMING LIVE TABLE sales_orders_cleaned(
+  CONSTRAINT valid_order_number EXPECT (order_number IS NOT NULL) ON VIOLATION DROP ROW
+)
+COMMENT "The cleaned sales orders with valid order_number(s) and partitioned by order_datetime."
+AS
+  SELECT f.customer_id, f.customer_name, f.number_of_line_items, 
+         timestamp(from_unixtime((cast(f.order_datetime as long)))) as order_datetime, 
+         date(from_unixtime((cast(f.order_datetime as long)))) as order_date, 
+         f.order_number, f.ordered_products, c.state, c.city, c.lon, c.lat, c.units_purchased, c.loyalty_segment
+  FROM STREAM(LIVE.sales_orders_raw) f
+  LEFT JOIN LIVE.customers c
+    ON c.customer_id = f.customer_id
+    AND c.customer_name = f.customer_name
+```
+
+Gold:
+
+```sh
+CREATE OR REFRESH LIVE TABLE sales_order_in_la
+COMMENT "Sales orders in LA."
+AS
+  SELECT city, order_date, customer_id, customer_name, ordered_products_explode.curr, 
+         sum(ordered_products_explode.price) as sales, 
+         sum(ordered_products_explode.qty) as quantity, 
+         count(ordered_products_explode.id) as product_count
+  FROM (SELECT city, order_date, customer_id, customer_name, explode(ordered_products) as ordered_products_explode
+        FROM LIVE.sales_orders_cleaned 
+        WHERE city = 'Los Angeles')
+  GROUP BY order_date, city, customer_id, customer_name, ordered_products_explode.curr
+```
+## Orchestrating Jobs with Databricks
+
+The Jobs API allows you to create, edit, and delete jobs.
+
+You can use a Databricks job to run a data processing or data analysis task in a Databricks cluster with scalable resources. Your job can consist of a single task or can be a large, multi-task workflow with complex dependencies. Databricks manages the task orchestration, cluster management, monitoring, and error reporting for all of your jobs. You can run your jobs immediately or periodically through an easy-to-use scheduling system. You can implement job tasks using notebooks, JARS, Delta Live Tables pipelines, or Python, Scala, Spark submit, and Java applications.
+
+## Databricks SQL
+
+Databricks SQL (DB SQL) is a serverless data warehouse on the Databricks Lakehouse Platform that lets you run all your SQL and BI applications at scale with up to 12x better price/performance, a unified governance model, open formats and APIs, and your tools of choice – no lock-in.
+
+## Managing Permissions
+
+## Sources: 
 - https://sparkbyexamples.com/spark/types-of-clusters-in-databricks/
 - https://hevodata.com/learn/databricks-clusters/
 - https://docs.databricks.com/clusters/index.html 
 - https://learn.microsoft.com/en-us/azure/databricks/delta/
 - https://docs.databricks.com/sql/language-manual/delta-describe-history.html
 - https://community.databricks.com/s/question/0D53f00001GHVPFCA5/whats-the-difference-between-a-global-view-and-a-temp-view
+- https://docs.databricks.com/ingestion/auto-loader/index.html
+- https://docs.databricks.com/delta-live-tables/index.html#publish-tables
+- https://docs.databricks.com/api-explorer/workspace/jobs
+- https://www.databricks.com/product/databricks-sql
