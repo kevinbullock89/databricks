@@ -1022,6 +1022,59 @@ Databricks SQL (DB SQL) is a serverless data warehouse on the Databricks Lakehou
 
 ## Managing Permissions
 
+### Configuring Permissions
+
+By default, admins will have the ability to view all objects registered to the metastore and will be able to control permissions for other users in the workspace. Users will default to having no permissions on anything registered to the metastore, other than objects that they create in DBSQL; note that before users can create any databases, tables, or views, they must have create and usage privileges specifically granted to them.
+
+Generally, permissions will be set using Groups that have been configured by an administrator, often by importing organizational structures from SCIM integration with a different identity provider. This lesson will explore Access Control Lists (ACLs) used to control permissions, but will use individuals rather than groups.
+
+### Table ACLs
+
+Databricks allows you to configure permissions for the following objects:
+
+- CATALOG   -> controls access to the entire data catalog.
+- DATABASE  -> controls access to a database.
+- TABLE     -> controls access to a managed or external table.
+- VIEW      -> controls access to SQL views.
+- FUNCTION  -> controls access to a named function.
+- ANY FILE  -> controls access to the underlying filesystem. Users granted access to ANY FILE can bypass the restrictions put on the catalog, databases, tables, and                  views by reading from the file system directly. NOTE: At present, the ANY FILE object cannot be set from Data Explorer.
+
+### Granting Privileges
+
+Databricks admins and object owners can grant privileges according to the following rules:
+
+- Databricks administrator  -> All objects in the catalog and the underlying filesystem.
+- Catalog owner             -> All objects in the catalog.
+- Database owner            -> All objects in the database.
+- Table owner               -> Only the table (similar options for views and functions).
+
+NOTE: At present, Data Explorer can only be used to modify ownership of databases, tables, and views. Catalog permissions can be set interactively with the SQL Query Editor.
+
+### Privileges
+
+The following privileges can be configured in Data Explorer:
+
+- ALL PRIVILEGES      -> gives all privileges (is translated into all the below privileges).
+- SELECT              -> gives read access to an object.
+- MODIFY              -> gives ability to add, delete, and modify data to or from an object.
+- READ_METADATA       -> gives ability to view an object and its metadata.
+- USAGE               -> does not give any abilities, but is an additional requirement to perform any action on a database object.
+- CREATE              -> gives ability to create an object (for example, a table in a database).
+
+### Admin Configuration
+
+At present, users do not have any Table ACL permissions granted on the default catalog hive_metastore by default. To enable the ability to create databases and tables in the default catalog using Databricks SQL, have a workspace admin run the following command in the DBSQL query editor:
+
+```sh
+GRANT usage, create ON CATALOG `hive_metastore` TO `users`
+```
+
+To confirm this has run successfully, execute the following query:
+
+```sh
+SHOW GRANT ON CATALOG `hive_metastore`
+```
+
 ## Sources: 
 - https://sparkbyexamples.com/spark/types-of-clusters-in-databricks/
 - https://hevodata.com/learn/databricks-clusters/
