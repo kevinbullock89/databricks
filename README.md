@@ -1,16 +1,35 @@
 # Databricks
 
-## Types of Clusters in Databricks
+## Databricks Architecture
+
+Azure Databricks is structured to enable secure cross-functional team collaboration while keeping a significant amount of backend services managed by Azure Databricks so you can stay focused on your data science, data analytics, and data engineering tasks.
+
+Azure Databricks operates out of a control plane and a data plane.
+
+The control plane includes the backend services that Azure Databricks manages in its own Azure account. Notebook commands and many other workspace configurations are stored in the control plane and encrypted at rest.
+
+Your Azure account manages the data plane, and is where your data resides. This is also where data is processed. Use Azure Databricks connectors to connect clusters to external data sources outside of your Azure account to ingest data, or for storage. You can also ingest data from external streaming data sources, such as events data, streaming data, IoT data, and more.
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/ARCHITECTURE.JPG)
+
+## Clusters
+
+Clusters are made up of one ore more virtual machine (VM) instances.
+
+  - Driver coordinates activities of executors
+  - Executors run tasks composing a Spark job
+
+### Types of Clusters in Databricks
 
 A Databricks cluster is a set of computation resources and configurations on which you run data engineering, data science, and data analytics workloads, such as production ETL pipelines, streaming analytics, ad-hoc analytics, and machine learning.
 
 ### All-purpose cluster
 
-These types of Clusters are used to analyze data collaboratively via interactive notebooks. They are created using the CLI, UI, or REST API. An All-purpose Cluster can be terminated and restarted manually. They can also be shared by multiple users to do collaborative tasks interactively.
+These types of Clusters are used to analyze data collaboratively via interactive notebooks. They are created using the CLI, UI, or REST API. An All-purpose Cluster can be terminated and restarted manually. They can also be shared by multiple users to do collaborative tasks interactively. Retains up to 70 clusters for up to 30 days.
 
 ### Job Clusters
 
-These types of clusters are used for running fast and robust automated tasks. They are created when you run a job on your new Job Cluster and terminate the Cluster once the job ends. A Job Cluster cannot be restarted.
+These types of clusters are used for running fast and robust automated tasks. They are created when you run a job on your new Job Cluster and terminate the Cluster once the job ends. A Job Cluster cannot be restarted. Retains up to 30 clusters.
 
 ## Modes in Databricks Cluster
 
@@ -1076,6 +1095,7 @@ SHOW GRANT ON CATALOG `hive_metastore`
 ```
 
 ## Sources: 
+- https://learn.microsoft.com/en-us/azure/databricks/getting-started/overview
 - https://sparkbyexamples.com/spark/types-of-clusters-in-databricks/
 - https://hevodata.com/learn/databricks-clusters/
 - https://docs.databricks.com/clusters/index.html 
