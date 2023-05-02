@@ -49,6 +49,46 @@ Workloads written in SQL, Python, and R can be run on high-concurrency clusters.
 
 Single node clusters as the name suggests will only have one node i.e for the driver. There would be no worker node available in this mode. In this mode, the spark job runs on the driver note itself. This mode is more helpful in the case of small data analysis and Single-node machine learning workloads that use Spark to load and save data.
 
+## Data objects in the Lakehouse
+
+The Databricks Lakehouse architecture combines data stored with the Delta Lake protocol in cloud object storage with metadata registered to a metastore. 
+
+### metastore
+
+The metastore contains all of the metadata that defines data objects in the lakehouse.
+
+### Catalog
+
+A catalog is the highest abstraction (or coarsest grain) in the Databricks Lakehouse relational model. Every database will be associated with a catalog. Catalogs exist as objects within a metastore.
+
+### Database
+
+A database is a collection of data objects, such as tables or views (also called “relations”), and functions. In Azure Databricks, the terms “schema” and “database” are used interchangeably (whereas in many relational systems, a database is a collection of schemas).
+
+### Table
+
+An Azure Databricks table is a collection of structured data. A Delta table stores data as a directory of files on cloud object storage and registers table metadata to the metastore within a catalog and schema.
+
+What is a managed table?
+
+Azure Databricks manages both the metadata and the data for a managed table; when you drop a table, you also delete the underlying data. Managed tables are the default when creating a table. The data for a managed table resides in the LOCATION of the database it is registered to.
+
+What is an unmanaged table?
+
+Azure Databricks only manages the metadata for unmanaged (external) tables; when you drop a table, you do not affect the underlying data. Unmanaged tables will always specify a LOCATION during table creation. Because data and metadata are managed independently, you can rename a table or register it to a new database without needing to move any data.
+
+### View
+
+A view stores the text for a query typically against one or more data sources or tables in the metastore. In Databricks, a view is equivalent to a Spark DataFrame persisted as an object in a database. Creating a view does not process or write any data; only the query text is registered to the metastore in the associated database.
+
+What is a temporary view?
+
+A temporary view has a limited scope and persistence and is not registered to a schema or catalog.
+
+### Functions
+
+Functions allow you to associate user-defined logic with a database. Functions can return either scalar values or sets of rows. Functions are used to aggregate data. 
+
 ## Delta Lake
 
 Delta Lake is the optimized storage layer that provides the foundation for storing data and tables in the Databricks Lakehouse Platform. Delta Lake is open source software that extends Parquet data files with a file-based transaction log for ACID transactions and scalable metadata handling. 
@@ -1106,3 +1146,4 @@ SHOW GRANT ON CATALOG `hive_metastore`
 - https://docs.databricks.com/delta-live-tables/index.html#publish-tables
 - https://docs.databricks.com/api-explorer/workspace/jobs
 - https://www.databricks.com/product/databricks-sql
+- https://learn.microsoft.com/en-us/azure/databricks/lakehouse/data-objects
