@@ -492,9 +492,31 @@ SELECT * FROM binaryFile.`${da.paths.datasets}/raw/events-kafka/`
 
 While directly querying files works well for self-describing formats, many data sources require additional configurations or schema declaration to properly ingest records.
 
+While views can be used to persist direct queries against files between sessions, this approach has limited utility. CSV files are one of the most common file formats, but a direct query against these files rarely returns the desired results.
+
+```sh
+SELECT * FROM csv.`${DA.paths.sales_csv}`
+```
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/EXTERNAL_SOURCES_CSV.JPG)
+
 ### Registering Tables on External Data with Read Options
 
 While Spark will extract some self-describing data sources efficiently using default settings, many formats will require declaration of schema or other options. While there are many additional configurations you can set while creating tables against external sources, the syntax below demonstrates the essentials required to extract data from most formats.
+
+```sh
+CREATE TABLE table_identifier (col_name1 col_type1, ...)
+USING data_source
+OPTIONS (key1 = val1, key2 = val2, ...)
+LOCATION = path
+```
+
+The cell below demonstrates using Spark SQL DDL to create a table against an external CSV source, specifying:
+
+1. The column names and types
+2. The file format
+3. The delimiter used to separate fields
+4. The presence of a header
+5. The path to where this data is stored
 
 ```sh
 CREATE TABLE sales_csv
@@ -506,6 +528,34 @@ OPTIONS (
 )
 LOCATION "${da.paths.working_dir}/sales-csv"
 ```
+
+To create a table against an external source in PySpark, you can wrap this SQL code with the spark.sql() function.
+
+```sh
+%python
+spark.sql(f"""
+CREATE TABLE IF NOT EXISTS sales_csv
+  (order_id LONG, email STRING, transactions_timestamp LONG, total_item_quantity INTEGER, purchase_revenue_in_usd DOUBLE, unique_items INTEGER, items STRING)
+USING CSV
+OPTIONS (
+  header = "true",
+  delimiter = "|"
+)
+LOCATION "{DA.paths.sales_csv}"
+""")
+```
+
+Similar to when we directly queried our files and created a view, we are still just pointing to files stored in an external location. 
+
+```sh
+SELECT * FROM sales_csv
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/EXTERNAL_SOURCES_CSV_FORMATED.JPG)
+
+All the metadata and options passed during table declaration will be persisted to the metastore, ensuring that data in the location will always be read with these options.
+
+
 
 ### Extracting Data from SQL Databased
 
