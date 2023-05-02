@@ -434,6 +434,12 @@ WHERE
   AND destination_airport = "DEN";
 ```
 
+CTEs only alias the results of a query while that query is being planned and executed. As such, the following cell with throw an error when executed.
+
+```sh
+SELECT COUNT(*) FROM cte_json
+```
+
 ## Querying Files Directly 
 
 ### Quere a single File:
