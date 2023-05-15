@@ -509,6 +509,10 @@ USING data_source
 OPTIONS (key1 = val1, key2 = val2, ...)
 LOCATION = path
 ```
+Spark supports many data sources with custom options, and additional systems may have unofficial support through external libraries. 
+
+Data Sources: https://docs.databricks.com/external-data/index.html, 
+Libraries:    https://docs.databricks.com/libraries/index.html
 
 The cell below demonstrates using Spark SQL DDL to create a table against an external CSV source, specifying:
 
