@@ -776,11 +776,42 @@ FILEFORMAT = PARQUET
 
 ## Cleaning Data
 
+Many standard SQL query commands (e.g. DISTINCT, WHERE, GROUP BY, etc.) are available in Spark SQL to express transformations.
+
 - count(col) skips NULL values when counting specific columns or expressions.
 - count(*) is a special case that counts the total number of rows (including rows that are only NULL values).
 - To count null values, use the count_if function or WHERE clause to provide a condition that filters for records where the value IS NULL
 - Distinct Records count(DISNTINCT(*))
 - Distinct Records count(DISNTINCT(col))
+
+### Deduplicate Rows Based on Specific Columns
+
+```sh
+CREATE OR REPLACE TEMP VIEW deduped_users AS 
+SELECT user_id, user_first_touch_timestamp, max(email) AS email, max(updated) AS updated
+FROM users_dirty
+WHERE user_id IS NOT NULL
+GROUP BY user_id, user_first_touch_timestamp;
+
+SELECT count(*) FROM deduped_users
+```
+
+### Date Format and Regex
+
+Uses regexp_extract to extract the domains from the email column using regex:
+
+```sh
+SELECT *, 
+  date_format(first_touch, "MMM d, yyyy") AS first_touch_date,
+  date_format(first_touch, "HH:mm:ss") AS first_touch_time,
+  regexp_extract(email, "(?<=@).+", 0) AS email_domain
+FROM (
+  SELECT *,
+    CAST(user_first_touch_timestamp / 1e6 AS timestamp) AS first_touch 
+  FROM deduped_users
+)
+```
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/REGEX.JPG)
 
 ## Advanced SQL Transformations
 
