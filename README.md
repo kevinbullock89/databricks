@@ -559,7 +559,15 @@ SELECT * FROM sales_csv
 
 All the metadata and options passed during table declaration will be persisted to the metastore, ensuring that data in the location will always be read with these options.
 
+### Limits of Tables with External Data Sources
 
+Note that whenever we're defining tables or queries against external data sources, we cannot expect the performance guarantees associated with Delta Lake and Lakehouse. For example: while Delta Lake tables will guarantee that you always query the most recent version of your source data, tables registered against other data sources may represent older cached versions.
+
+Manually refresh the cache of the data by running the REFRESH TABLE command.
+
+```sh
+REFRESH TABLE sales_csv
+```
 
 ### Extracting Data from SQL Databased
 
@@ -575,6 +583,23 @@ OPTIONS (
   dbtable = "users"
 )
 ```
+
+Query this table:
+
+```sh
+SELECT * FROM users_jdbc
+```
+
+Note that some SQL systems such as data warehouses will have custom drivers. Spark will interact with various external databases differently, but the two basic approaches can be summarized as either:
+
+1) Moving the entire source table(s) to Databricks and then executing logic on the currently active cluster
+2) Pushing down the query to the external SQL database and only transferring the results back to Databricks
+
+In either case, working with very large datasets in external SQL databases can incur significant overhead because of either:
+
+1) Network transfer latency associated with moving all data over the public internet
+2) Execution of query logic in source systems not optimized for big data queries
+
 
 ## Creating Delta Tables
 
