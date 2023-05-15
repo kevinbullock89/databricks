@@ -850,7 +850,9 @@ LIMIT 1
 
 ![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/KAFKA_EVENT.JPG)
 
-Spark SQL also has a schema_of_json function to derive the JSON schema from an example
+-> schema_of_json() returns the schema derived from an example JSON string.
+-> from_json() parses a column containing a JSON string into a struct type using the specified schema.
+-> * unpacking can be used to flattens structs; col_name.* pulls out the subfields of col_name into their own columns.
 
 ```sh
 CREATE OR REPLACE TEMP VIEW parsed_events AS
