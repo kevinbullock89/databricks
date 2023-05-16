@@ -1065,7 +1065,7 @@ from pyspark.sql.functions import col
 display(sales_df.select(first_letter_udf(col("email"))))
 ```
 
-![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/PYTHON_UDF.png)
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/PYTHON_UDF.JPG)
 
 ### Register UDF to use in SQL
 
