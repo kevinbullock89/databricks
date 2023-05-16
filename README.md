@@ -878,12 +878,15 @@ SELECT * FROM new_events_final
 
 The items field in the events table is an array of structs. Spark SQL has a number of functions specifically to deal with arrays. The explode function lets us put each element in an array on its own row.
 
+  - explode() separates the elements of an array into multiple rows; this creates a new row for each element.
+  - size() provides a count for the number of elements in an array for each row.
+
 ```sh
-CREATE OR REPLACE TEMP VIEW new_events_final AS
-  SELECT json.* 
-  FROM parsed_events;
-  
-SELECT * FROM new_events_final
+CREATE OR REPLACE TEMP VIEW exploded_events AS
+SELECT *, explode(items) AS item
+FROM parsed_events;
+
+SELECT * FROM exploded_events WHERE size(items) > 2
 ```
 
 ![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/EXPLORE_ARRAY.JPG)
@@ -1023,6 +1026,8 @@ Note that SQL UDFs will persist between execution environments (which can includ
 DESCRIBE FUNCTION yelling
 ```
 
+The Body contains the script of the function itself.
+
 ![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/DESCRIBE_FUNCTION.JPG)
 
 ```sh
@@ -1030,6 +1035,87 @@ DESCRIBE FUNCTION EXTENDED yelling
 ```
 
 ![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/DESCRIBE_FUNCTION_EXTENDED.JPG)
+
+## Python User-Defined Functions (UDF)
+
+A custom column transformation function
+
+  - Can’t be optimized by Catalyst Optimizer
+  - Function is serialized and sent to executors
+  - Row data is deserialized from Spark's native binary format to pass to the UDF, and the results are serialized back into Spark's native format
+  - For Python UDFs, additional interprocess communication overhead between the executor and a Python interpreter running on each worker node
+
+Define a function (on the driver) to get the first letter of a string from the email field.
+
+```sh
+def first_letter_function(email):
+    return email[0]
+
+first_letter_function("annagray@kaufman.com")
+```
+
+### Create Create and apply UDF
+
+```sh
+first_letter_udf = udf(first_letter_function)
+```
+```sh
+from pyspark.sql.functions import col
+
+display(sales_df.select(first_letter_udf(col("email"))))
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/PYTHON_UDF.png)
+
+### Register UDF to use in SQL
+
+Register the UDF using spark.udf.register to also make it available for use in the SQL namespace.
+
+```sh
+sales_df.createOrReplaceTempView("sales")
+
+first_letter_udf = spark.udf.register("sql_udf", first_letter_function)
+```
+```sh
+# You can still apply the UDF from Python
+display(sales_df.select(first_letter_udf(col("email"))))
+```
+
+```sh
+%sql
+-- You can now also apply the UDF from SQL
+SELECT sql_udf(email) AS first_letter FROM sales
+```
+
+### Use Decorator Syntax (Python only)
+
+Alternatively, you can define and register a UDF using Python decorator syntax. The @udf decorator parameter is the Column datatype the function returns.
+
+```sh
+# Our input/output is a string
+@udf("string")
+def first_letter_udf(email: str) -> str:
+    return email[0]
+```
+
+### Pandas/Vectorized UDFs
+
+Pandas UDFs are available in Python to improve the efficiency of UDFs. Pandas UDFs utilize Apache Arrow to speed up computation. Apache Arrow, an in-memory columnar data format that is used in Spark to efficiently transfer data between JVM and Python processes with near-zero (de)serialization cost
+
+```sh
+import pandas as pd
+from pyspark.sql.functions import pandas_udf
+
+# We have a string input/output
+@pandas_udf("string")
+def vectorized_udf(email: pd.Series) -> pd.Series:
+    return email.str[0]
+
+# Alternatively
+# def vectorized_udf(email: pd.Series) -> pd.Series:
+#     return email.str[0]
+# vectorized_udf = pandas_udf(vectorized_udf, "string")
+```
 
 ## Incremental Data Ingestion with Auto Loader
 
