@@ -355,7 +355,7 @@ CREATE OR REPLACE TABLE external_table LOCATION '${da.paths.working_dir}/externa
 
 ### Views
 
-A Temp View is available across the context of a Notebook.
+A Temp View is available across the context of a Notebook. Temporary views skip persisting the definition in the underlying metastore. Views have metadata that can be accessed in the view’s directory. Temporary views are session-scoped and dropped when the Spark session ends. Views can be accessed after the session ends.
 
 ```sh
 -- mode "FAILFAST" will abort file parsing with a RuntimeException if any malformed lines are encountered
@@ -919,7 +919,11 @@ Spark SQL supports standard join operations (inner, outer, left, right, anti, cr
 
 ### Pivot Tables
 
-The PIVOT clause is used for data perspective. We can get the aggregated values based on specific column values, which will be turned to multiple columns used in SELECT clause. The PIVOT clause can be specified after the table name or subquery.
+The PIVOT clause is used for data perspective. We can get the aggregated values based on specific column values, which will be turned to multiple columns used in SELECT clause. The PIVOT clause can be specified after the table name or subquery. Pivoting tables can rotate the data from long to wide format using the .pivot() function.
+
+Therefore, the correct approach is:
+
+The data engineer can rotate the data from long to wide format using the .pivot() function.
 
 SELECT * FROM (): The SELECT statement inside the parentheses is the input for this table.
 
@@ -1044,6 +1048,7 @@ A custom column transformation function
   - Function is serialized and sent to executors
   - Row data is deserialized from Spark's native binary format to pass to the UDF, and the results are serialized back into Spark's native format
   - For Python UDFs, additional interprocess communication overhead between the executor and a Python interpreter running on each worker node
+  - In a Function type hints can be used to clarify the input and return types of the function.
 
 Define a function (on the driver) to get the first letter of a string from the email field.
 
