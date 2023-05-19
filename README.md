@@ -290,6 +290,8 @@ SELECT "${da.db_name}" AS db_name,
 
 ### Databases
 
+By default, managed tables in a schema without the location specified will be created in the dbfs:/user/hive/warehouse/<schema_name>.db/ directory.
+
 ```sh
 CREATE DATABASE IF NOT EXISTS ${da.db_name}_default_location;
 CREATE DATABASE IF NOT EXISTS ${da.db_name}_custom_location LOCATION '${da.paths.working_dir}/_custom_location.db';   
@@ -635,24 +637,6 @@ Problems solved by ACID:
 4) Real-time operations hard
 5) Costly to keep historical data versions
 
-### Schemas
-
-Note that the location of the first schema is in the default location under dbfs:/user/hive/warehouse/ and that the schema directory is the name of the schema with the .db extension
-
-```sh
-CREATE SCHEMA IF NOT EXISTS ${da.schema_name}_default_location;
-CREATE SCHEMA IF NOT EXISTS ${da.schema_name}_custom_location LOCATION '${da.paths.working_dir}/${da.schema_name}_custom_location.db';
-```
-
-```sh
-DESCRIBE SCHEMA EXTENDED ${da.schema_name}_default_location;
-```
-
-Note that the location of the second schema is in the directory specified after the LOCATION keyword.
-
-```sh
-DESCRIBE SCHEMA EXTENDED ${da.schema_name}_custom_location;
-```
 
 ## Creating Delta Tables
 
