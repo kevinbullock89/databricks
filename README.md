@@ -194,7 +194,7 @@ DESCRIBE EXTENDED students
 
 ![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/DESCRIBE_EXTENDED.JPG)
 
-DESCRIBE DETAIL is another command that allows us to explore table metadata.
+DESCRIBE DETAIL allows us to see some other details about our Delta table, including the number of files.
 
 ```sh
 DESCRIBE DETAIL students
