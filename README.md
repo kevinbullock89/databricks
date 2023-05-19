@@ -600,6 +600,59 @@ In either case, working with very large datasets in external SQL databases can i
 1) Network transfer latency associated with moving all data over the public internet
 2) Execution of query logic in source systems not optimized for big data queries
 
+## Manage Data with Delta Lake
+
+Delta Lake is not:
+
+  - Propretary technology
+  - Storage format
+  - Storage medium
+  - Database service or data warehouse
+
+Delta Lake is:
+
+  - Open source
+  - Builds upon standard data formats
+  - Optimized for cloud object storage
+  - Built for scalable metadata handling
+
+Delta Lake brings ACID to object storage
+
+  - Atomicity
+    Atomicity means that you guarantee that either all of the transaction succeeds or none of it does.
+  - Consistency
+    This ensures that you guarantee that all data will be consistent.
+  - Isolation
+    Guarantees that all transactions will occur in isolation. No transaction will be affected by any other transaction.
+  - Durability
+    Durability means that, once a transaction is committed, it will remain in the system – even if there’s a system crash immediately following the transaction.
+    
+Problems solved by ACID:
+
+1) Hard to append data
+2) Modification of existing data difficult
+3) Jobs failing mid way
+4) Real-time operations hard
+5) Costly to keep historical data versions
+
+### Schemas
+
+Note that the location of the first schema is in the default location under dbfs:/user/hive/warehouse/ and that the schema directory is the name of the schema with the .db extension
+
+```sh
+CREATE SCHEMA IF NOT EXISTS ${da.schema_name}_default_location;
+CREATE SCHEMA IF NOT EXISTS ${da.schema_name}_custom_location LOCATION '${da.paths.working_dir}/${da.schema_name}_custom_location.db';
+```
+
+```sh
+DESCRIBE SCHEMA EXTENDED ${da.schema_name}_default_location;
+```
+
+Note that the location of the second schema is in the directory specified after the LOCATION keyword.
+
+```sh
+DESCRIBE SCHEMA EXTENDED ${da.schema_name}_custom_location;
+```
 
 ## Creating Delta Tables
 
@@ -1356,3 +1409,4 @@ SHOW GRANT ON CATALOG `hive_metastore`
 - https://docs.databricks.com/api-explorer/workspace/jobs
 - https://www.databricks.com/product/databricks-sql
 - https://learn.microsoft.com/en-us/azure/databricks/lakehouse/data-objects
+- https://database.guide/what-is-acid-in-databases/
