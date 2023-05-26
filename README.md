@@ -1258,7 +1258,125 @@ Delta Live Tables is a declarative framework for building reliable, maintainable
 
 Instead of defining your data pipelines using a series of separate Apache Spark tasks, you define streaming tables and materialized views that the system should create and keep up to date. Delta Live Tables manages how your data is transformed based on queries you define for each processing step.
 
-### SQL for Delta Live Tables
+### What is a Live Table?
+
+Live Tables are materialized views for the lakehouse. A live table is: Defined by a SQL query, Created and kept up-to-date by a pipeline
+
+Live tables provides tools to:
+
+  - Manage dependencies
+  - Control qualtity
+  - Automate operations
+  - Simplify collaboration
+  - Save costs
+  - Reduce latency
+
+```sh
+CREATE LIVE TABLE report
+AS
+SELECT sum(profit)
+from prod.sales
+```
+
+### What is a Streaming Live Table?
+
+Based on Spark Structured Streaming
+
+A streaming live table is "statufl":
+  - Ensure exactly-once processing of input rows
+  - Inputs are onlu read once
+
+Streaming Live tables compute results over append-only streams such as Kafka, Kinesis, or Auto Loader. Streaming live tables allow to reduce costs and latency by avoiding reprocessing of old data
+
+
+```sh
+CREATE STREAMING LIVE TABLE report
+AS
+SELECT sum(profit)
+FROM cloud_files(prod.sales)
+```
+### Creating Live Tables
+
+  1. Write create live table
+  2. Create a pipeline
+  3. Click start
+
+### Development vs Productioln (BEST PRACTICE)
+
+Fast iteration or enterprise grade reliability
+
+Development Mode:
+
+  - Reuses a long-running cluster running for fast iteration
+  - No retries on errors enabling faster debugging
+
+Production Mode:
+
+  - Cuts costs by turning off clusters as soon as they are done (within 5 minutes)
+  - Escalating retries, including cluster restarts, ensure reliability in the face of transient issues
+
+### Declare LIVE Dependencies
+
+Using the LIVE virtual schema
+
+```sh
+CREATE LIVE TABLE events
+AS
+SELECT ... from prod.raw_data
+
+CREATE LIVE TABLE report
+AS
+SELECT .... FROM LIVE.events
+```
+
+  - Depenencies owned by other producers are just read from the catalog or spark data sources as normal
+  - LIVE dependencies, from the same pipeline, are read from the LIVE schema
+  - DLT detects LIVE dependencies and executes all operations in correct order
+  - DLT handles parallelism and capture the lineage of the data
+
+### Ensure correctness with Expectations
+
+Expectations are tests that ensure data qualtiy in production
+
+```sh
+CONSTRAINT valid_timestamp
+EXPECT (timestamp > '2012-01-01')
+ON VIOLATION DROP
+```
+
+```sh
+@dlt.expect_or_drop(
+"valid_timestamp",
+col("timestamp") > '2012-01-01'
+)
+```
+
+Expectations are true/false expressions that are used to validate each row during processing.
+
+DLT offers flexible policies on how to handle records that violate expectations:
+
+  - Track number of bad records
+  - Drop bad records
+  - Abort processing for a single bad record
+
+### Pipeline UI
+
+  - Visualize data flows between
+  - Discover metadata and quality of each table
+  - Access to historical updates
+  - Control operations
+
+### The Event Log
+
+The event log automatically records all pipelines operations
+
+  - Operational Statistics
+  - Provenance
+  - Data Qualtity
+
+### 
+
+### SQL for Delta STREAM Live Tables
 
 Bronze:
 
