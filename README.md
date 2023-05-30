@@ -1208,7 +1208,7 @@ def block_until_stream_is_ready(query, min_batches=2):
 block_until_stream_is_ready(query)
 ```
 
-## Incremental Multi-Hop in the Lakehouse 
+## Multi-Hop in the Lakehouse 
 
 Delta Lake allows users to easily combine streaming and batch workloads in a unified multi-hop pipeline. Each stage of the pipeline represents a state of our data valuable to driving core use cases within the business. Because all data and metadata lives in object storage in the cloud, multiple users and applications can access data in near-real time, allowing analysts to access the freshest data as it's being processed.
 
@@ -1374,9 +1374,23 @@ The event log automatically records all pipelines operations
   - Provenance
   - Data Qualtity
 
-### 
 
 ### SQL for Delta STREAM Live Tables
+
+Using Spark Structured Streaming for ingesting
+
+This example creates a table with all the json data stored in "/data":
+
+  - cloud_files keeps track of which files have been read to avoid duplication and wasted work
+  - Supports both listing and notifications for arbitrary scale
+  - Configurable schema inference and schema evolution
+
+```sh
+CREATE STREAMING LIVE TABLE raw_data
+AS
+SELECT * 
+FROM cloud_files("/data", "json")
+```
 
 Bronze:
 
@@ -1433,6 +1447,48 @@ AS
         WHERE city = 'Los Angeles')
   GROUP BY order_date, city, customer_id, customer_name, ordered_products_explode.curr
 ```
+
+### Using the SQL STREAM() function
+
+  - STREAM(my_table) reads a stream of new records, instead of a snapshot
+  - Streaming tables must be an append-only table
+  - Anny append-only delta table can read as a stream
+
+```sh
+CREATE STREAMING LIVE TABLE mystream
+AS
+SELECT * 
+FROM STREAM(my_table)
+```
+
+### Parameters in Delta Live Tables
+
+A pipeline's configuration is a map of key value pairs that can be used to parameterize the code:
+
+  - Improve code 
+  - Reuse code in multiple pipelines for different data
+
+### Change Data Capture (CDC)
+
+Apply changes INTO for CDC
+
+```sh
+APPLY CHANGES INTO LIVE.cities
+FROM STREAM(LIVE.city_updates)
+KEYS (ID)
+SEQUENCE BY ts
+```
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/CDC.JPG)l
+
+### Automated Data Management
+
+  - Best Practices
+    DLT encodes Delta best practices automatically when creating DLT tables
+  - Physical Data
+    DLT automatically manages the physical data to minimize cost and optimimize performance
+  - Schema Evolution
+
 ## Orchestrating Jobs with Databricks
 
 The Jobs API allows you to create, edit, and delete jobs.
