@@ -1489,6 +1489,125 @@ SEQUENCE BY ts
     DLT automatically manages the physical data to minimize cost and optimimize performance
   - Schema Evolution
 
+### Delta Live Tables: Python VS SQL
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/DLT_PYTHON_SQL.JPG)
+
+### Query Event Log
+
+The event log is managed as a Delta Lake table with some of the more important fields stored as nested JSON data. The query below shows how simple it is to read this table and created a DataFrame and temporary view for interactive querying.
+
+```sh
+event_log_path = f"{DA.paths.storage_location}/system/events"
+
+event_log = spark.read.format('delta').load(event_log_path)
+event_log.createOrReplaceTempView("event_log_raw")
+
+display(event_log)
+```
+
+Set Latest Update ID
+
+```sh
+latest_update_id = spark.sql("""
+    SELECT origin.update_id
+    FROM event_log_raw
+    WHERE event_type = 'create_update'
+    ORDER BY timestamp DESC LIMIT 1""").first().update_id
+
+print(f"Latest Update ID: {latest_update_id}")
+
+# Push back into the spark config so that we can use it in a later query.
+spark.conf.set('latest_update.id', latest_update_id)
+```
+
+Perform Audit Logging
+
+```sh
+%sql
+SELECT timestamp, details:user_action:action, details:user_action:user_name
+FROM event_log_raw 
+WHERE event_type = 'user_action'
+```
+
+Examine Lineage
+
+```sh
+%sql
+SELECT details:flow_definition.output_dataset, details:flow_definition.input_datasets 
+FROM event_log_raw 
+WHERE event_type = 'flow_definition' AND 
+      origin.update_id = '${latest_update.id}'
+```
+
+Examine Data Quality Metrics
+
+```sh
+%sql
+SELECT row_expectations.dataset as dataset,
+       row_expectations.name as expectation,
+       SUM(row_expectations.passed_records) as passing_records,
+       SUM(row_expectations.failed_records) as failing_records
+FROM
+  (SELECT explode(
+            from_json(details :flow_progress :data_quality :expectations,
+                      "array<struct<name: string, dataset: string, passed_records: int, failed_records: int>>")
+          ) row_expectations
+   FROM event_log_raw
+   WHERE event_type = 'flow_progress' AND 
+         origin.update_id = '${latest_update.id}'
+  )
+GROUP BY row_expectations.dataset, row_expectations.name
+```
+
+### Fundamentals of DLT SQL Syntax
+
+Tables as Query Results.
+
+Delta Live Tables adapts standard SQL queries to combine DDL (data definition language) and DML (data manipulation language) into a unified declarative syntax. There are two distinct types of persistent tables that can be created with DLT:
+
+  - Live tables are materialized views for the lakehouse; they will return the current results of any query with each refresh
+  - Streaming live tables are designed for incremental, near-real time data processing
+
+Streaming Ingestion with Auto Loader
+
+Databricks has developed the Auto Loader functionality to provide optimized execution for incrementally loading data from cloud object storage into Delta Lake. Using Auto Loader with DLT is simple: just configure a source data directory, provide a few configuration settings, and write a query against your source data. Auto Loader will automatically detect new data files as they land in the source cloud object storage location, incrementally processing new records without the need to perform expensive scans and recomputing results for infinitely growing datasets.
+
+Validating, Enriching, and Transforming Data
+
+DLT allows users to easily declare tables from results of any standard Spark transformations. DLT leverages features used elsewhere in Spark SQL for documenting datasets, while adding new functionality for data quality checks.
+
+The Select Statement
+The select statement contains the core logic of your query. In this example, we:
+
+Cast the field order_timestamp to the timestamp type
+Select all of the remaining fields (except a list of 3 we're not interested in, including the original order_timestamp)
+Note that the FROM clause has two constructs that you may not be familiar with:
+
+The LIVE keyword is used in place of the database name to refer to the target database configured for the current DLT pipeline
+The STREAM method allows users to declare a streaming data source for SQL queries
+
+Data Quality Constraints
+DLT uses simple boolean statements to allow quality enforcement checks on data.
+
+Table Comments
+Table comments are standard in SQL, and can be used to provide useful information to users throughout your organization.
+
+Table Properties
+The TBLPROPERTIES field can be used to pass any number of key/value pairs for custom tagging of data. 
+
+Live Tables vs. Streaming Live Tables
+
+Live Tables
+  - Always "correct", meaning their contents will match their definition after any update.
+  - Return same results as if table had just been defined for first time on all data.
+  - Should not be modified by operations external to the DLT Pipeline.
+
+Streaming Live Tables
+  - Only supports reading from "append-only" streaming sources.
+  - Only reads each input batch once, no matter what.
+  - Can perform operations on the table outside the managed DLT Pipeline.
+
 ## Orchestrating Jobs with Databricks
 
 The Jobs API allows you to create, edit, and delete jobs.
