@@ -1608,6 +1608,55 @@ Streaming Live Tables
   - Only reads each input batch once, no matter what.
   - Can perform operations on the table outside the managed DLT Pipeline.
 
+### Fundamentals about Fundamentals of DLT Python Syntax
+
+DLT syntax is not intended for interactive execution in a notebook. This notebook will need to be scheduled as part of a DLT pipeline for proper execution. At the time this notebook was written, the current Databricks runtime does not include the dlt module, so trying to execute any DLT commands in a notebook will fail. During the configuration of the DLT pipeline, a number of options were specified. One of these was a key-value pair added to the Configurations field.
+
+Configurations in DLT pipelines are similar to parameters in Databricks Jobs, but are actually set as Spark configurations.
+
+In Python, we can access these values usings spark.conf.get().
+
+Throughout these lessons, we'll set the Python variable source early in the notebook and then use this variable as necessary in the code. The dlt module should be explicitly imported into your Python notebook libraries.
+
+Here, we should importing pyspark.sql.functions as F.
+
+Some developers import *, while others will only import the functions they need in the present notebook.
+
+There are two distinct types of persistent tables that can be created with DLT:
+
+  - Live tables are materialized views for the lakehouse; they will return the current results of any query with each refresh
+  - Streaming live tables are designed for incremental, near-real time data processing
+
+### Streaming Ingestion with Auto Loader
+
+The query below returns a streaming DataFrame from a source configured with Auto Loader.
+
+In addition to passing cloudFiles as the format, here we specify:
+
+  - The option cloudFiles.format as json (this indicates the format of the files in the cloud object storage location)
+  - The option cloudFiles.inferColumnTypes as True (to auto-detect the types of each column)
+  - The path of the cloud object storage to the load method
+  - A select statement that includes a couple of pyspark.sql.functions to enrich the data alongside all the source fields
+ 
+ By default, @dlt.table will use the name of the function as the name for the target table.
+
+```sh
+@dlt.table
+def orders_bronze():
+    return (
+        spark.readStream
+            .format("cloudFiles")
+            .option("cloudFiles.format", "json")
+            .option("cloudFiles.inferColumnTypes", True)
+            .load(f"{source}/orders")
+            .select(
+                F.current_timestamp().alias("processing_time"), 
+                F.input_file_name().alias("source_file"), 
+                "*"
+            )
+    )
+```
+
 ## Orchestrating Jobs with Databricks
 
 The Jobs API allows you to create, edit, and delete jobs.
