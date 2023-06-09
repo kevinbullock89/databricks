@@ -1791,6 +1791,12 @@ Can be conditional on a specific user/service principal or group membership thro
   - Limit access to rows
   - Data Masking
 
+Access control with dynamic views is achieved through the use of functions within the definition of the view. These functions include:
+
+  - *current_user()*: returns the email address of the user querying the view
+  - *is_account_group_member()*: returns TRUE if the user querying the view is a member of the specified group
+  - *mask()*: Masking is similar in principle except we are displaying some of the data rather than replacing it entirely
+
 ### Storage Credentials
 
 Enables Unity Catalog to connect to an external cloud store
@@ -1807,6 +1813,8 @@ Cloud storage path + storage credential
 ### Access Control Storage Credentials and External Location
 
 ![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/ACCESS_CONTROL.JPG)
+
+
 
 ## Sources: 
 - https://learn.microsoft.com/en-us/azure/databricks/getting-started/overview
