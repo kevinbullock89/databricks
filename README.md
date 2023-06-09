@@ -1722,6 +1722,65 @@ To confirm this has run successfully, execute the following query:
 SHOW GRANT ON CATALOG `hive_metastore`
 ```
 
+## Data Governance Overview
+
+  - Data Access Control (Control who has access to which data)
+  - Data Access Audit (Capture and record all access to data)
+  - Data Lineage (Capture upstream sources and downstream consumers)
+  - Data Discovery (Ability to search and discover authorized asstes)
+
+### Databricks Unity Catalog
+
+  - Unify governance across clouds
+  - Unify data and AI assets
+  - Unify existing catalogs
+
+### Key Concepts
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/KEY_CONCEPTS_GOVERNANCE.JPG)
+
+Traditional SQL two-level namespace:
+SELECT * FROM *schema.table*
+
+Unity Catalog three-level namespace:
+SELECT * FROM *catalog.schema.table*
+
+### Unity Catalog Architecture
+
+  - User (Person)
+  - Account administrator (Admin role)
+  - Service Principal 
+  - Service Principal with adminstrative privileges (Admin role)
+  - Groups
+  - Nesting groups
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/UNITY_CATALOG_ARCHITECTURE.JPG)
+
+### Unity Catalog Identities
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/IDENTITIES.JPG)
+
+### Identies federation
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/IDENTITIES_FEDERATION.JPG)
+
+### Clusters
+
+Modes supporting Unity Catalog
+  - Single user
+  - User isoaltion
+
+Modes not supporting Unity Catalog
+  - None (No security)
+  - Table ACL only
+  - Passthrough only
+
+Security mode feature matrix:
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/CLUSTER_SECURITY.JPG)
+
+
+
 ## Sources: 
 - https://learn.microsoft.com/en-us/azure/databricks/getting-started/overview
 - https://sparkbyexamples.com/spark/types-of-clusters-in-databricks/
