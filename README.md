@@ -1779,7 +1779,34 @@ Security mode feature matrix:
 
 ![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/CLUSTER_SECURITY.JPG)
 
+### Security model
 
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/SECURITY_MODEL.JPG)
+
+### Dynamic Views
+
+Can be conditional on a specific user/service principal or group membership through Databricks-provided functions
+
+  - Limit access to columns
+  - Limit access to rows
+  - Data Masking
+
+### Storage Credentials
+
+Enables Unity Catalog to connect to an external cloud store
+Examples include:
+  - IAM role for AWS S3
+  - Service principal for Azure Storage
+
+### External Location
+
+Cloud storage path + storage credential
+  - Self-contained object for accessing specific locations in cloud stores
+  - Fine-grained control over external storage
+
+### Access Control Storage Credentials and External Location
+
+![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/ACCESS_CONTROL.JPG)
 
 ## Sources: 
 - https://learn.microsoft.com/en-us/azure/databricks/getting-started/overview
