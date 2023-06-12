@@ -1814,7 +1814,107 @@ Cloud storage path + storage credential
 
 ![image](https://github.com/kevinbullock89/databricks/blob/main/Databricks%20Data%20Engineer%20Associate/Screenshots/ACCESS_CONTROL.JPG)
 
+### Create and Share Tables in Unity Catalog
 
+Create Schema:
+```sh
+CREATE SCHEMA IF NOT EXISTS my_own_schema;
+USE my_own_schema;
+
+SELECT current_database()
+```
+
+Grant access:
+```sh
+GRANT SELECT ON TABLE patient_gold.heartrate_stats to `analysts`
+```
+
+Grant table as user:
+```sh
+GRANT USAGE ON SCHEMA patient_gold TO `analysts`
+```
+
+Explore Grants:
+
+```sh
+SHOW TABLES IN ${DA.catalog_name}.patient_silver;
+```
+```sh
+SHOW GRANT ON TABLE ${DA.catalog_name}.patient_silver.heartrate
+```
+```sh
+SHOW GRANT ON SCHEMA ${DA.catalog_name}.patient_silver
+```
+```sh
+SHOW GRANT ON CATALOG `${DA.catalog_name}`
+```
+
+### Create external tables in Unity Catalog
+
+The first prerequisite for creating external tables is to establish a credential to access the cloud file store where the table data will live. In Unity Catalog, this construct is referred to a storage credential and we will create one now.
+
+See the properties of the storage credential:
+```sh
+DESCRIBE STORAGE CREDENTIAL <storage credential name>
+```
+
+Unity Catalog also provides a wrapper known as an external location that additionally specifies a path within the storage container.
+
+```sh
+DESCRIBE EXTERNAL LOCATION <external location name>
+```
+Create External Table:
+
+```sh
+CREATE OR REPLACE TABLE silver_external
+LOCATION '<url value from above>'
+AS SELECT * FROM silver_managed
+```
+
+Grant access to an external table:
+
+```sh
+GRANT USAGE ON CATALOG `${da.catalog_name}` to `analysts`;
+GRANT USAGE ON DATABASE `${da.schema_name}` TO `analysts`;
+GRANT SELECT ON TABLE silver_external to `analysts`
+```
+
+Grant access to files:
+
+Storage credentials and external locations support additional specialized privileges that allow us to govern access to the files stored in those locations. These privileges include:
+
+READ FILES: ability to directly read files stored in this location
+WRITE FILES: ability to directly write files stored in this location
+CREATE TABLE: ability to create a table based on files stored in this location
+
+```sh
+GRANT READ FILES ON EXTERNAL LOCATION <external location name> TO `analysts`
+```
+
+### Upgrade a Table to Unity Catalog
+
+Select Unity Catalog and create database
+
+```sh
+USE CATALOG `${DA.catalog_name}`
+```
+```sh
+CREATE DATABASE IF NOT EXISTS `${DA.schema_name}`
+```
+```sh
+USE `${DA.schema_name}`
+```
+
+Upgrade the table:
+
+Copying the table boils down to a simple CREATE TABLE AS SELECT (CTAS) operation, using the three-level namespace to specify the source table.
+```sh
+CREATE OR REPLACE TABLE movies
+AS SELECT * FROM hive_metastore.`${DA.schema_name}`.movies
+```
+```sh
+SHOW GRANTS ON movies
+```
 
 ## Sources: 
 - https://learn.microsoft.com/en-us/azure/databricks/getting-started/overview
